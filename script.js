@@ -3,7 +3,7 @@ $.global = {
         2016, 2 -1, 3,
         0, 0, 0
     ),
-    current_frame: getFrame(this.START_DATE),
+    current_frame: function() {getFrame(this.START_DATE);},
 
     item: 1,
     total: 0,
@@ -68,7 +68,5 @@ function getFrame(date) {
 function initFrame() {
     
     let frameNode = $("<div></div>").addClass("slide");
-    frameNode.css('background-image', `url(${getFrame($.global.current_frame)})`);
-
-    
+    frameNode.css('background-image', 'url('+$.global.current_frame()+')');
 }
