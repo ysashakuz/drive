@@ -3,8 +3,8 @@ $.global = {
         2016, 2 -1, 3,
         0, 30, 0
     ),
-    current_frame: function() {getFrame(this.START_DATE);},
 	current_path: new Path(),
+	preparing_paths: [],
     item: 1,
     total: 0,
 };
@@ -21,16 +21,29 @@ function Path(week, day, hour) {
 	this.hour = hour || 0;
 
 	this.toString = function () {
-		return `/img/week_${this.week}/day_${this.day}/h${this.hour}.jpg`;
+		return `/drive/img/week_${this.week}/day_${this.day}/h${this.hour}.jpg`;
 	};
 
 	this.recalculate = function (date) {
-	   const msInHour = 1000*60*60;
-	   const totalHours = Math.floor((date - $.global.START_DATE) / msInHour);
+	    const msInHour = 1000*60*60;
+	    const totalHours = Math.floor((date - $.global.START_DATE) / msInHour);
 	   
-	   this.week = (Math.floor((totalHours-1) / (7*24))) % this.getWeeksCount() + 1;
-	   this.day = (Math.floor((totalHours-1) / 24) % 7) % this.getDaysCount() + 1;
-	   this.hour = ((totalHours-1) % 24) % this.getHoursCount();
+	    let week = (Math.floor((totalHours-1) / (7*24))) % this.getWeeksCount() + 1;
+	    let is_value_changed = week != this.week;
+		this.week = week;
+		
+		let day = (Math.floor((totalHours-1) / 24) % 7) % this.getDaysCount() + 1;
+		is_value_changed |= (day != this.day);
+	    this.day = day;
+
+		let hour = ((totalHours-1) % 24) % this.getHoursCount();
+		is_value_changed |= (hour != this.hour);		
+		this.hour = hour;
+
+		// Use callback if values changed
+		if (is_value_changed && this.callback) {
+		   this.callback(this);
+		}
 	};
 
 	this.getWeeksCount = function() {
@@ -60,15 +73,17 @@ function Path(week, day, hour) {
 /**
 region dev
 */
-document.getElementById('_button').onclick = function (e) {
-	var _p = $('#_date');
-	_p.text(getFrame(get_current_datetime()));
+var b = document.getElementById('_button');
+if (b) {
+	b.onclick = function (e) {
+		var _p = $('#_date');
+		_p.text(getFrame(get_current_datetime()));
+	}
 }
-
 function get_current_datetime() {
 	var result = new Date();
 	var _input = $('#_input');
-	if (_input) {
+	if (_input.val()) {
 		let _it = _input.val().split(':');
 		result.setHours(_it[0], _it[1]);
 	}
@@ -86,12 +101,31 @@ function get_info(url){
 		url: url,
 		async: false,
 		success: function (data) {
-			result = JSON.parse(data);
+			try {
+				result = JSON.parse(data);
+			}
+			catch (err){
+				console.error(err);
+				result = {meta: {count: 1}};
+			}
+		},
+		failure: function(err) {
+			console.error(err);
+			result = {meta: {count: 1}};
 		}
 	});
 	return result;	
 }
 
+function doRecalculate() {
+	return $.global.current_path.recalculate(
+		get_current_datetime()
+	);
+}
+
+function prepare_cache_images() {
+	// TODO
+}
 
 $(document).ready(function() {
 	/**
@@ -105,9 +139,8 @@ $(document).ready(function() {
 	var SlidesWidth = SlideCount * WindowWidth;
 
     $.global.item = 0;
-    $.global.total = SlideCount; 
+    $.global.total = SlideCount;
 	
-
     $('.slide').css('width',WindowWidth+'px');
     $('#slides').css('width',SlidesWidth+'px');
 
@@ -115,6 +148,11 @@ $(document).ready(function() {
     
     $('#left').click(function() { Slide('back'); }); 
     $('#right').click(function() { Slide('forward'); }); 
+
+	$.global.current_path.callback = setFrame;
+
+	doRecalculate();
+	setInterval(doRecalculate, 60000);
 });
 
 function Slide(direction) {
@@ -142,29 +180,7 @@ function DoIt(target) {
     $('#count').html($.global.item+1);
 }
 
-
-function getFrame(date) {
-	/*
-    deprecated. Use Path object
-   */
-   const msInHour = 1000*60*60;
-   const totalHours = Math.floor((date - $.global.START_DATE) / msInHour);
-   
-   let week = Math.floor((totalHours-1) / (7*24)) + 1;
-   let day = Math.floor((totalHours-1) / 24) % 7 + 1;
-   let hour = (totalHours-1) % 24;
-
-	$.global.current_path.week = week;
-	$.global.current_path.day = day;
-	$.global.current_path.hour = hour;
-   //return '/img/week_'+week+'/day_'+day+'/h'+hour+'.jpg';
-
-   return $.global.current_path.toString();
-	// `/img/week_${week}/day_${day}/h${hour}.jpg`;
-}
-
-function initFrame() {
-    
-    let frameNode = $("<div></div>").addClass("slide");
-    frameNode.css('background-image', 'url('+$.global.current_frame()+')');
+function setFrame(path) {    
+    // let frameNode = $("<div></div>").addClass("slide");
+	$('.alive').css('background-image', 'url('+path.toString()+')');
 }
