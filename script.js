@@ -65,7 +65,6 @@ function getFrame(date) {
    return `/img/week_${week}/day_${day}/h${hour}.jpg`;
 }
 
-drv4ever@yandex.ru
 function initFrame() {
     
     let frameNode = $("<div></div>").addClass("slide");
