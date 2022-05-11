@@ -54,19 +54,32 @@ function Path(week, day, hour) {
 	};
 	this.getDaysCount = function() {
 		if (this._daysCount) {return this._daysCount;}
-		this._daysCount = get_info(
-			`/drive/img/week_${this.week}/info.txt`
-		).meta.count;
+		try {
+			this._daysCount = get_info(
+				`/drive/img/week_${this.week}/info.txt`
+			).meta.count;
+		}
+		catch (e) {
+			console.error(e);
+			// FIXME
+			this._daysCount = 7;
+		}
 		
-		return this._daysCount || 1;
+		return this._daysCount;
 	};
 	this.getHoursCount = function() {
 		if (this._hoursCount) {return this._hoursCount;}
-		this._hoursCount = get_info(
-			`/drive/img/week_${this.week}/day_${this.day}/info.txt`
-		).meta.count;
+		try {
+			this._hoursCount = get_info(
+				`/drive/img/week_${this.week}/day_${this.day}/info.txt`
+			).meta.count;
+		} catch(e) {
+			console.error(e);
+			// FIXME
+			this._hoursCount = 24;
+		}
 		
-		return this._hoursCount || 1;
+		return this._hoursCount;
 	};
 };
 
@@ -101,17 +114,11 @@ function get_info(url){
 		url: url,
 		async: false,
 		success: function (data) {
-			try {
-				result = JSON.parse(data);
-			}
-			catch (err){
-				console.error(err);
-				result = {meta: {count: 1}};
-			}
+			result = JSON.parse(data);
+
 		},
 		failure: function(err) {
 			console.error(err);
-			result = {meta: {count: 1}};
 		}
 	});
 	return result;	
