@@ -46,7 +46,12 @@ function Path(week, day, hour) {
 		   this.callback(this);
 		}
 	};
-
+	this.getTotalCount = function() {
+		if (this._totalCount) {return this._totalCount;}
+		this._totalCount = get_info('/drive/img/info.txt').meta.totalCount;
+		
+		return this._totalCount;
+	};
 	this.getWeeksCount = function() {
 		if (this._weeksCount) {return this._weeksCount;}
 		this._weeksCount = get_info('/drive/img/info.txt').meta.count;
