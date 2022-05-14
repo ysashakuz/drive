@@ -26,7 +26,8 @@ function Path(week, day, hour) {
 
 	this.recalculate = function (date) {
 	    const msInHour = 1000*60*60;
-	    const totalHours = Math.floor((date - $.global.START_DATE) / msInHour);
+	    const totalCount = this.getTotalCount();
+	    const totalHours = Math.floor((date - $.global.START_DATE) / msInHour) % totalCount;
 	   
 	    let week = (Math.floor((totalHours-1) / (7*24))) % this.getWeeksCount() + 1;
 	    let is_value_changed = week != this.week;
