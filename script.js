@@ -48,13 +48,13 @@ function Path(week, day, hour) {
 	};
 	this.getTotalCount = function() {
 		if (this._totalCount) {return this._totalCount;}
-		this._totalCount = get_info('/drive/img/info.txt').meta.totalCount;
+		this._totalCount = get_info('/drive/img/info.json').meta.totalCount;
 		
 		return this._totalCount;
 	};
 	this.getWeeksCount = function() {
 		if (this._weeksCount) {return this._weeksCount;}
-		this._weeksCount = get_info('/drive/img/info.txt').meta.count;
+		this._weeksCount = get_info('/drive/img/info.json').meta.count;
 		
 		return this._weeksCount || 1;
 	};
@@ -62,7 +62,7 @@ function Path(week, day, hour) {
 		if (this._daysCount) {return this._daysCount;}
 		try {
 			this._daysCount = get_info(
-				`/drive/img/week_${this.week}/info.txt`
+				`/drive/img/week_${this.week}/info.json`
 			).meta.count;
 		}
 		catch (e) {
@@ -77,7 +77,7 @@ function Path(week, day, hour) {
 		if (this._hoursCount) {return this._hoursCount;}
 		try {
 			this._hoursCount = get_info(
-				`/drive/img/week_${this.week}/day_${this.day}/info.txt`
+				`/drive/img/week_${this.week}/day_${this.day}/info.json`
 			).meta.count;
 		} catch(e) {
 			console.error(e);

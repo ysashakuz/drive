@@ -9,6 +9,7 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 import json
 import os
+from tkinter.messagebox import NO
 from typing import Dict, List, Tuple
 from io import StringIO
 
@@ -26,6 +27,7 @@ date_end = datetime(
     hour=6, minute=31, second=59,
     # tzinfo=timezone(timedelta(hours=3)),
 )
+
 VK_APP_ID = int(os.environ['VK_APP_ID'])
 VK_API_URL = 'https://api.vk.com/method/{method}'
 VK_OWNER_ID = int(os.environ['VK_OWNER_ID'])
@@ -178,20 +180,31 @@ async def wall_get(session: ClientSession) -> None:
     """
     url = VK_API_URL.format(method='wall.get')
     dt = None
-    if not getattr(wall_get, 'offset', None):
+    if getattr(wall_get, 'offset', None) is None:
         wall_get.offset = WALL_INIT_OFFSET
-    count = 24
+    if getattr(wall_get, 'count', None) is None:
+        wall_get.count = 24
+
     params = {
         'access_token': access_token,
         'v': '5.131',
         'owner_id': VK_OWNER_ID,
         'offset': wall_get.offset,
-        'count': count,
+        'count': wall_get.count,
     }
     if not getattr(wall_get, 'inner_count', None):
         wall_get.inner_count = 0
 
-    wall_get.offset -= count
+    if wall_get.offset < 0:
+        raise ValueError(f'Negative offset. Iter: {wall_get.inner_count}, dt: {dt}. Return')
+
+    wall_get.offset -= wall_get.count
+
+    if wall_get.offset < 0:
+        wall_get.count += wall_get.offset 
+        wall_get.offset = 0
+        print(f'negative offset debug: count: {wall_get.count} offset: {wall_get.offset}')
+
     async with session.get(url, params=params) as response:
         dt = await process_wall_responce(session, response)
 
@@ -302,12 +315,16 @@ async def photos_get(session: ClientSession) -> None:
 async def main() -> None:
     """
     """
+    last_dt = None
     async with ClientSession() as session:
         for _ in range(1000):
             try:
                 last_dt = await wall_get(session)
             except TempException as te:
-                print(str(te))
+                print(str(te), f'last_dt: {last_dt}')
+            except ValueError as ve:
+                print(ve)
+                break
 
             if last_dt > date_end:
                 print('Dowload stoped. Period done!')
