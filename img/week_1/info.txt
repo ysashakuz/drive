@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "prefix": "day_",
-    "count": 7
-  }
-}
