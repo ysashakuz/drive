@@ -1,31 +1,38 @@
 #!python3
 
 from asyncio import (
+    gather,
     get_event_loop,
     sleep,
 )
-
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timezone, timedelta
+import json
 import os
 from typing import Dict, List, Tuple
+from io import StringIO
 
 from aiohttp import (
     ClientSession,
 )
 
-VK_APP_ID = 0
-VK_API_URL = 'https://api.vk.com/method/{method}'
-VK_OWNER_ID = -0
-access_token = ''
-
 date_start = datetime(
-    year=2020, month=2, day=23,
-    hour=0, minute=0, second=0,
+    year=2021, month=3, day=6,
+    hour=22, minute=29, second=0,
+    # tzinfo=timezone(timedelta(hours=3)),
 )
 date_end = datetime(
-    year=2020, month=3, day=8,
-    hour=23, minute=59, second=59,
+    year=2021, month=5, day=20,
+    hour=6, minute=31, second=59,
+    # tzinfo=timezone(timedelta(hours=3)),
 )
+VK_APP_ID = int(os.environ['VK_APP_ID'])
+VK_API_URL = 'https://api.vk.com/method/{method}'
+VK_OWNER_ID = int(os.environ['VK_OWNER_ID'])
+WALL_INIT_OFFSET =int(os.environ['WALL_INIT_OFFSET'])
+access_token = os.environ['VK_ACCESS_TOKEN']
+date_start = datetime.fromtimestamp(int(os.environ.get('WALL_DATE_START', date_start.timestamp())))
+date_end = datetime.fromtimestamp(int(os.environ.get('WALL_DATE_END', date_end.timestamp())))
 
 
 async def authorize(session):
@@ -55,6 +62,25 @@ async def authorize(session):
 class TempException(Exception):
     pass
 
+class VirtualInfo:
+    def __init__(self) -> None:
+        self.infos: Dict[str, Dict] = {}
+
+    def get_info(self, path: str, default: Dict):
+        if path not in self.infos:
+            self.infos[path] = default
+        return self.infos[path]
+
+    def flush_to_fs(self):
+        for path, info in self.infos.items():
+            with open(path, 'w') as f:
+                json.dump(info, f)
+
+    def set_info(self, week, day):
+        pass
+
+virtual_info = VirtualInfo()
+
 
 async def save_photo(
         session: ClientSession,
@@ -80,20 +106,38 @@ async def save_photo(
         photo_bin = await photo_file.read()
 
         week, day, hour = get_week_day_hour_by_count(count)
+        week_path = os.path.join('..', 'img', f'week_{week}')
         save_path = os.path.join(
             '..',
             'img',
             f'week_{week}',
             f'day_{day}',
         )
+
+        img_info = virtual_info.get_info(
+            os.path.join('..', 'img', 'info.json'), 
+            default={'meta': {'count': 0, 'totalCount': 0, 'prefix': 'week_'}})
+        week_info = virtual_info.get_info(
+            os.path.join('..', 'img', f'week_{week}', 'info.json'),
+            default={'meta': {'count': 0, 'prefix': 'day_'}})
+        day_info = virtual_info.get_info(
+            os.path.join('..', 'img', f'week_{week}', f'day_{day}', 'info.json'),
+            default={'debug': [],'meta': {'count': 0, 'prefix': 'day_'}})
+
+        if not os.path.exists(week_path):
+            img_info['meta']['count'] += 1
+
         if not os.path.exists(save_path):
             os.makedirs(save_path)
+            week_info['meta']['count'] += 1
+
         dt = dt.strftime("%Y-%m-%d_%H:%M")
         with open(os.path.join(save_path, f'h{hour}.jpg'), 'wb') as fd:
             fd.write(photo_bin)
         
-        with open(os.path.join(save_path, 'info.txt'), 'a') as info_d:
-            info_d.write(f'h{hour} {dt}\n')
+        img_info['meta']['totalCount'] += 1
+        day_info['meta']['count'] += 1
+        day_info['debug'].append(f'h{hour} {dt}')
 
 
 def get_week_day_hour_by_count(count: int) -> Tuple[int, int, int]:
@@ -135,8 +179,8 @@ async def wall_get(session: ClientSession) -> None:
     url = VK_API_URL.format(method='wall.get')
     dt = None
     if not getattr(wall_get, 'offset', None):
-        wall_get.offset = 5_700
-    count = 10
+        wall_get.offset = WALL_INIT_OFFSET
+    count = 24
     params = {
         'access_token': access_token,
         'v': '5.131',
@@ -167,6 +211,8 @@ async def process_wall_responce(session, response) -> datetime:
     
     get_area = lambda s: s['width']*s['height']
     
+    save_coros = []
+
     for wall_item in wall_items[::-1]:
         dt = datetime.fromtimestamp(wall_item['date']) 
         if not date_start < dt < date_end:
@@ -185,12 +231,14 @@ async def process_wall_responce(session, response) -> datetime:
             # FIXME min -> max
             max_size = max(size, max_size, key=get_area)
 
-        await save_photo(
+        save_coros.append(save_photo(
             session=session,
             dt=dt,
             size=max_size,
             count=wall_get.inner_count,
-        )
+        ))
+    await gather(*save_coros)
+
     return dt
 
 
@@ -247,6 +295,7 @@ async def photos_get(session: ClientSession) -> None:
                 size=max_size,
                 count=photos_get.inner_count,
             )
+
     return dt
 
 
@@ -266,6 +315,8 @@ async def main() -> None:
             await sleep(0.5)
         else:
             print('Dowload stoped. Limit iterations')
+
+    virtual_info.flush_to_fs()
 
 
 if __name__=="__main__":
