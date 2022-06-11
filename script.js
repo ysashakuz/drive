@@ -120,8 +120,10 @@ function get_info(url){
 		url: url,
 		async: false,
 		success: function (data) {
-			result = JSON.parse(data);
-
+			if (data instanceof String) {
+				result = JSON.parse(data);
+			}
+			result = data;
 		},
 		failure: function(err) {
 			console.error(err);
