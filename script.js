@@ -144,8 +144,12 @@ function doRecalculate() {
 	);
 }
 
-function prepare_cache_images() {
-	// TODO
+function prepare_cache_image(i) {
+	let path = new Path();
+	path.recalculateByIndex($.global.current_path.totalIndex + i);
+	let image = new Image();
+	image.src = path.toString();
+	$.global.preparing_paths.push(image);
 }
 
 $(document).ready(function() {
@@ -173,10 +177,8 @@ $(document).ready(function() {
 	$.global.current_path.callback = setFrame;
 
 	doRecalculate();
-	for (i=0; i<10; i++){
-		path = new Path();
-		path.recalculateByIndex($.global.current_path.totalIndex + i);
-		$.global.preparing_paths.push(path);
+	for (i=0; i<10; i++) {
+		prepare_cache_image(i);
 	}
 	// todo: use cache images
 	setInterval(doRecalculate, 800);
@@ -210,4 +212,6 @@ function DoIt(target) {
 function setFrame(path) {    
     // let frameNode = $("<div></div>").addClass("slide");
 	$('.alive').css('background-image', 'url('+path.toString()+')');
+	$.global.preparing_paths.shift();
+	prepare_cache_image(9);
 }
