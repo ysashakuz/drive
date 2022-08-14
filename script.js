@@ -19,16 +19,22 @@ function Path(week, day, hour) {
 	this.week = week || 1;
 	this.day = day || 1;
 	this.hour = hour || 0;
+	this.totalIndex = 0;
 
 	this.toString = function () {
 		return `/drive/img/week_${this.week}/day_${this.day}/h${this.hour}.jpg`;
 	};
 
 	this.recalculate = function (date) {
-	    const msInHour = 1000*60*60;
+		// use avg frame interval that gives in summary total movie duration(6000s)
 	    const totalCount = this.getTotalCount();
+		const msInHour = 1000 * (6000 / totalCount); // 3.35946; //60*60;
 	    const totalHours = Math.floor((date - $.global.START_DATE) / msInHour) % totalCount;
-	   
+		this.totalIndex = totalHours;
+
+		this.recalculateByIndex(totalHours);
+	};
+	this.recalculateByIndex = function(totalHours) {
 	    let week = (Math.floor((totalHours-1) / (7*24))) % this.getWeeksCount() + 1;
 	    let is_value_changed = week != this.week;
 		this.week = week;
@@ -167,7 +173,13 @@ $(document).ready(function() {
 	$.global.current_path.callback = setFrame;
 
 	doRecalculate();
-	setInterval(doRecalculate, 60000);
+	for (i=0; i<10; i++){
+		path = new Path();
+		path.recalculateByIndex($.global.current_path.totalIndex + i);
+		$.global.preparing_paths.push(path);
+	}
+	// todo: use cache images
+	setInterval(doRecalculate, 800);
 });
 
 function Slide(direction) {
